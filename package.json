@@ -1,0 +1,28 @@
+{
+  "name": "desktop-gremlin",
+  "version": "1.0.0",
+  "description": "A real-time multiplayer prank app where one user controls a gremlin character that can wander and mess with their friend's simulated desktop.",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "nodemon server/index.js"
+  },
+  "keywords": [
+    "gremlin",
+    "multiplayer",
+    "prank",
+    "websocket",
+    "socket.io"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.6.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}

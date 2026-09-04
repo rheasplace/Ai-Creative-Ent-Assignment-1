@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Desktop Gremlin</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <!-- Title Screen -->
+  <div id="titleScreen" class="screen">
+    <div class="screen-content">
+      <h1>🌚 Desktop Gremlin</h1>
+      <p>Control a mischievous gremlin and wreak havoc on your friend's desktop!</p>
+      <div class="button-group">
+        <button id="hostBtn" class="btn btn-primary">Host a Session</button>
+        <button id="joinBtn" class="btn btn-secondary">Join a Session</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Room Code Screen (for host) -->
+  <div id="roomCodeScreen" class="screen hidden">
+    <div class="screen-content">
+      <h2>Share this code with your friend:</h2>
+      <div class="room-code" id="roomCodeDisplay">---</div>
+      <p>Waiting for visitor to join...</p>
+      <button id="endHost" class="btn btn-danger">End Session</button>
+    </div>
+  </div>
+
+  <!-- Join Screen (for visitor) -->
+  <div id="joinScreen" class="screen hidden">
+    <div class="screen-content">
+      <h2>Enter Room Code:</h2>
+      <input id="roomCodeInput" type="text" placeholder="e.g., 123456" maxlength="6">
+      <button id="joinSubmit" class="btn btn-primary">Join</button>
+      <button id="cancelJoin" class="btn btn-secondary">Back</button>
+      <div id="joinError" class="error-message"></div>
+    </div>
+  </div>
+
+  <!-- Game Screen (shared between host and visitor, different UI per role) -->
+  <div id="gameScreen" class="screen hidden">
+    <div class="game-header">
+      <div class="session-info">
+        <span id="roleLabel"></span>
+        <span id="statusLabel" class="status-indicator">Connected</span>
+      </div>
+      <button id="endSession" class="btn btn-danger btn-small">End Session</button>
+    </div>
+
+    <!-- Host view: the simulated desktop -->
+    <div id="hostView" class="game-view hidden">
+      <canvas id="desktopCanvas" width="1024" height="576"></canvas>
+      <div class="info">
+        <p>Guest is controlling the gremlin...</p>
+      </div>
+    </div>
+
+    <!-- Visitor view: control panel -->
+    <div id="visitorView" class="game-view hidden">
+      <div class="control-panel">
+        <h3>Control the Gremlin</h3>
+        <div class="input-instructions">
+          <p><strong>Arrow Keys or WASD:</strong> Move</p>
+          <p><strong>Space:</strong> Grab/Interact</p>
+        </div>
+        <div id="gremlinDebug" class="debug-info"></div>
+      </div>
+      <!-- Optional: live view from host's canvas (via WebRTC or canvas streaming) -->
+      <div id="remoteView" class="remote-view">
+        <canvas id="remoteCanvas" width="512" height="288"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/client.js"></script>
+</body>
+</html>

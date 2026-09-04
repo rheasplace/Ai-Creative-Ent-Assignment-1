@@ -1,0 +1,284 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.screen {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.screen.hidden {
+  display: none;
+  opacity: 0;
+  visibility: hidden;
+}
+
+.screen-content {
+  background: white;
+  border-radius: 12px;
+  padding: 60px 40px;
+  text-align: center;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  max-width: 500px;
+  width: 90%;
+}
+
+.screen-content h1 {
+  font-size: 3em;
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.screen-content h2 {
+  font-size: 1.8em;
+  margin-bottom: 30px;
+  color: #333;
+}
+
+.screen-content p {
+  font-size: 1.1em;
+  color: #666;
+  margin-bottom: 20px;
+  line-height: 1.6;
+}
+
+.button-group {
+  display: flex;
+  gap: 15px;
+  margin-top: 40px;
+}
+
+.button-group button {
+  flex: 1;
+}
+
+.btn {
+  padding: 12px 24px;
+  font-size: 1em;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.btn-primary {
+  background: #667eea;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #5568d3;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-secondary {
+  background: #f093fb;
+  color: white;
+}
+
+.btn-secondary:hover {
+  background: #e07ce0;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(240, 147, 251, 0.4);
+}
+
+.btn-danger {
+  background: #ff6b6b;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #ee5a52;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.4);
+}
+
+.btn-small {
+  padding: 8px 16px;
+  font-size: 0.9em;
+}
+
+.room-code {
+  font-size: 2.5em;
+  font-weight: bold;
+  color: #667eea;
+  margin: 30px 0;
+  font-family: monospace;
+  letter-spacing: 4px;
+}
+
+input[type="text"] {
+  width: 100%;
+  padding: 12px;
+  font-size: 1.2em;
+  text-align: center;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  font-family: monospace;
+  letter-spacing: 2px;
+}
+
+input[type="text"]:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 10px rgba(102, 126, 234, 0.3);
+}
+
+.error-message {
+  color: #ff6b6b;
+  font-size: 0.95em;
+  margin-top: 15px;
+  min-height: 20px;
+}
+
+/* Game Screen */
+#gameScreen {
+  flex-direction: column;
+  background: #1a1a2e;
+  justify-content: flex-start;
+}
+
+.game-header {
+  width: 100%;
+  padding: 15px 20px;
+  background: rgba(0, 0, 0, 0.3);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid #667eea;
+}
+
+.session-info {
+  display: flex;
+  gap: 20px;
+  color: white;
+  font-weight: 600;
+}
+
+#roleLabel {
+  color: #f093fb;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-indicator::before {
+  content: '';
+  width: 12px;
+  height: 12px;
+  background: #2ecc71;
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.game-view {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.game-view.hidden {
+  display: none;
+}
+
+#desktopCanvas {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 8px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+.control-panel {
+  background: white;
+  padding: 30px;
+  border-radius: 8px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  max-width: 500px;
+  width: 100%;
+}
+
+.control-panel h3 {
+  color: #333;
+  margin-bottom: 20px;
+  font-size: 1.5em;
+}
+
+.input-instructions {
+  background: #f5f5f5;
+  padding: 20px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+}
+
+.input-instructions p {
+  color: #555;
+  margin: 10px 0;
+  font-size: 0.95em;
+}
+
+.input-instructions strong {
+  color: #667eea;
+}
+
+.debug-info {
+  background: #f9f9f9;
+  padding: 15px;
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 0.85em;
+  color: #555;
+  margin-top: 15px;
+  border-left: 3px solid #667eea;
+}
+
+.remote-view {
+  margin-top: 30px;
+  text-align: center;
+}
+
+#remoteCanvas {
+  max-width: 100%;
+  max-height: 400px;
+  border-radius: 8px;
+  background: black;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.info {
+  color: #999;
+  font-size: 0.9em;
+  margin-top: 20px;
+}
