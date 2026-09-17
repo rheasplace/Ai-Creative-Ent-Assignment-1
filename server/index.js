@@ -46,8 +46,18 @@ io.on('connection', (socket) => {
       state: {
         icons: [], // Array of { id, x, y, type }
         windows: [], // Array of { id, x, y, width, height, title, open }
-        gremlinPos: { x: 0, y: 0 },
-        gremlinMode: 'walk' // 'walk' or 'head-tracked'
+        gremlinPos: { x: 512, y: 288 },
+        gremlinMode: 'head-tracked', // 'walk' or 'head-tracked'
+        gremlinPose: {
+          yaw: 0,
+          pitch: 0,
+          roll: 0,
+          mouthOpen: 0,
+          leftEye: 1,
+          rightEye: 1,
+          x: 512,
+          y: 288
+        }
       }
     };
 
@@ -98,9 +108,39 @@ io.on('connection', (socket) => {
     const room = rooms[roomCode];
     if (room && room.visitorId === socket.id) {
       room.state.gremlinPos = { x, y };
+      if (room.state.gremlinPose) {
+        room.state.gremlinPose.x = x;
+        room.state.gremlinPose.y = y;
+      }
       // Broadcast to host
       if (room.hostSocket) {
         room.hostSocket.emit('gremlin:moved', { x, y });
+      }
+    }
+  });
+
+  // Visitor sends face tracking pose update
+  socket.on('visitor:faceUpdate', ({ roomCode, pose }) => {
+    const room = rooms[roomCode];
+    if (room && room.visitorId === socket.id) {
+      room.state.gremlinPose = Object.assign(room.state.gremlinPose || {}, pose);
+      if (pose.x !== undefined && pose.y !== undefined) {
+        room.state.gremlinPos = { x: pose.x, y: pose.y };
+      }
+      // Broadcast to host
+      if (room.hostSocket) {
+        room.hostSocket.emit('gremlin:faceUpdate', pose);
+      }
+    }
+  });
+
+  // Visitor toggles gremlin mode ('walk' or 'head-tracked')
+  socket.on('visitor:toggleMode', ({ roomCode, mode }) => {
+    const room = rooms[roomCode];
+    if (room && room.visitorId === socket.id) {
+      room.state.gremlinMode = mode;
+      if (room.hostSocket) {
+        room.hostSocket.emit('gremlin:modeChanged', { mode });
       }
     }
   });

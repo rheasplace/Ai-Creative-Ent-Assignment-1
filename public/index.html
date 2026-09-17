@@ -53,30 +53,73 @@
 
     <!-- Host view: the simulated desktop -->
     <div id="hostView" class="game-view hidden">
-      <canvas id="desktopCanvas" width="1024" height="576"></canvas>
+      <div class="canvas-container">
+        <canvas id="desktopCanvas" width="1024" height="576"></canvas>
+        <canvas id="threeCanvas" width="1024" height="576"></canvas>
+      </div>
       <div class="info">
-        <p>Guest is controlling the gremlin...</p>
+        <p>Guest is controlling the 3D Gremlin Head with their face...</p>
       </div>
     </div>
 
     <!-- Visitor view: control panel -->
     <div id="visitorView" class="game-view hidden">
-      <div class="control-panel">
-        <h3>Control the Gremlin</h3>
-        <div class="input-instructions">
-          <p><strong>Arrow Keys or WASD:</strong> Move</p>
-          <p><strong>Space:</strong> Grab/Interact</p>
+      <div class="visitor-grid">
+        <div class="control-panel">
+          <h3>Control the Gremlin</h3>
+          <div class="input-instructions">
+            <p><strong>Face Tracking:</strong> Turn head, open mouth, blink eyes!</p>
+            <p><strong>Arrow Keys or WASD:</strong> Move head on desktop</p>
+            <p><strong>Space:</strong> Grab/Interact</p>
+          </div>
+
+          <!-- Face Tracking Toggle & Status -->
+          <div class="face-control-card">
+            <h4>🎭 3D Face Tracking</h4>
+            <div class="button-row">
+              <button id="toggleCameraBtn" class="btn btn-primary btn-small">📷 Enable Camera</button>
+              <button id="toggleModeBtn" class="btn btn-secondary btn-small">Switch to 2D</button>
+            </div>
+            <div id="faceTrackingStatus" class="status-box">Camera off. Click 'Enable Camera' or use mouse to test!</div>
+          </div>
+
+          <div id="gremlinDebug" class="debug-info"></div>
         </div>
-        <div id="gremlinDebug" class="debug-info"></div>
+
+        <!-- Visitor Visual Previews -->
+        <div class="preview-panel">
+          <!-- 3D Avatar Mirror Preview -->
+          <div class="preview-box">
+            <h4>3D Gremlin Mirror</h4>
+            <canvas id="visitorAvatarCanvas" width="240" height="240"></canvas>
+          </div>
+
+          <!-- Webcam Preview -->
+          <div class="preview-box">
+            <h4>Webcam Feed</h4>
+            <video id="webcamVideo" width="240" height="180" autoplay playsinline muted></video>
+          </div>
+        </div>
       </div>
-      <!-- Optional: live view from host's canvas (via WebRTC or canvas streaming) -->
+
+      <!-- Remote view of host's desktop -->
       <div id="remoteView" class="remote-view">
+        <h4>Remote Desktop View</h4>
         <canvas id="remoteCanvas" width="512" height="288"></canvas>
       </div>
     </div>
   </div>
 
+  <!-- Three.js 3D Engine -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- MediaPipe FaceMesh & Camera Utils -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+
+  <!-- Socket.IO & App Scripts -->
   <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/gremlin3d.js"></script>
+  <script src="/js/faceTracker.js"></script>
   <script src="/js/client.js"></script>
 </body>
 </html>

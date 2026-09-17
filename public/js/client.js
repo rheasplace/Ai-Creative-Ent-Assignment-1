@@ -10,9 +10,29 @@ const gameState = {
     icons: [],
     windows: [],
     gremlinPos: { x: 512, y: 288 },
-    gremlinMode: 'walk'
+    gremlinMode: 'head-tracked', // 'head-tracked' (3D) or 'walk' (2D)
+    gremlinPose: {
+      yaw: 0,
+      pitch: 0,
+      roll: 0,
+      mouthOpen: 0,
+      leftEye: 1,
+      rightEye: 1,
+      x: 512,
+      y: 288
+    }
   },
-  localGremlinPos: { x: 512, y: 288 }
+  localGremlinPos: { x: 512, y: 288 },
+  localGremlinPose: {
+    yaw: 0,
+    pitch: 0,
+    roll: 0,
+    mouthOpen: 0,
+    leftEye: 1,
+    rightEye: 1,
+    x: 512,
+    y: 288
+  }
 };
 
 // UI elements
@@ -36,18 +56,29 @@ const roleLabel = document.getElementById('roleLabel');
 const hostView = document.getElementById('hostView');
 const visitorView = document.getElementById('visitorView');
 const desktopCanvas = document.getElementById('desktopCanvas');
+const threeCanvas = document.getElementById('threeCanvas');
 const remoteCanvas = document.getElementById('remoteCanvas');
+const visitorAvatarCanvas = document.getElementById('visitorAvatarCanvas');
+const webcamVideo = document.getElementById('webcamVideo');
+const toggleCameraBtn = document.getElementById('toggleCameraBtn');
+const toggleModeBtn = document.getElementById('toggleModeBtn');
+const faceTrackingStatus = document.getElementById('faceTrackingStatus');
 const gremlinDebug = document.getElementById('gremlinDebug');
 const statusLabel = document.getElementById('statusLabel');
 
-// Canvas contexts
-let desktopCtx = desktopCanvas.getContext('2d');
-let remoteCtx = remoteCanvas.getContext('2d');
+// Canvas contexts & 3D instances
+let desktopCtx = desktopCanvas ? desktopCanvas.getContext('2d') : null;
+let remoteCtx = remoteCanvas ? remoteCanvas.getContext('2d') : null;
+let hostGremlin3D = null;
+let visitorGremlin3D = null;
+let faceTracker = null;
 
 // ==================== UI Navigation ====================
 function showScreen(screenName) {
-  Object.values(screens).forEach(screen => screen.classList.add('hidden'));
-  screens[screenName].classList.remove('hidden');
+  Object.values(screens).forEach((screen) => screen.classList.add('hidden'));
+  if (screens[screenName]) {
+    screens[screenName].classList.remove('hidden');
+  }
 }
 
 hostBtn.addEventListener('click', () => {
@@ -78,6 +109,9 @@ joinSubmit.addEventListener('click', () => {
 });
 
 endSession.addEventListener('click', () => {
+  if (faceTracker) {
+    faceTracker.stop();
+  }
   socket.disconnect();
   location.reload();
 });
@@ -105,14 +139,18 @@ socket.on('session:join', ({ roomCode, role, state }) => {
   gameState.role = 'visitor';
   gameState.roomCode = roomCode;
   gameState.connected = true;
-  gameState.deskState = state;
+  if (state) {
+    gameState.deskState = Object.assign(gameState.deskState, state);
+  }
   console.log(`[VISITOR] Joined room ${roomCode}`);
   startGameVisitor();
 });
 
 // Error from server
 socket.on('error', ({ message }) => {
-  joinError.textContent = `Error: ${message}`;
+  if (joinError) {
+    joinError.textContent = `Error: ${message}`;
+  }
   console.error(message);
 });
 
@@ -130,20 +168,44 @@ socket.on('session:ended', ({ reason }) => {
   location.reload();
 });
 
-// Host: State updated by visitor action
+// State updated
 socket.on('state:updated', (state) => {
-  gameState.deskState = state;
+  gameState.deskState = Object.assign(gameState.deskState, state);
 });
 
 // Host: Gremlin moved
 socket.on('gremlin:moved', ({ x, y }) => {
   gameState.deskState.gremlinPos = { x, y };
+  if (hostGremlin3D) {
+    hostGremlin3D.setPosition(x, y);
+  }
+});
+
+// Host: 3D Face tracking update received
+socket.on('gremlin:faceUpdate', (pose) => {
+  if (!gameState.deskState.gremlinPose) {
+    gameState.deskState.gremlinPose = {};
+  }
+  Object.assign(gameState.deskState.gremlinPose, pose);
+
+  if (pose.x !== undefined && pose.y !== undefined) {
+    gameState.deskState.gremlinPos = { x: pose.x, y: pose.y };
+  }
+
+  if (hostGremlin3D) {
+    hostGremlin3D.updatePose(pose);
+  }
+});
+
+// Host: Gremlin mode changed (2D sprite vs 3D head)
+socket.on('gremlin:modeChanged', ({ mode }) => {
+  gameState.deskState.gremlinMode = mode;
+  console.log(`[MODE] Switched to ${mode}`);
 });
 
 // Host: Visitor attempted interaction
 socket.on('gremlin:interact', ({ action, targetId }) => {
   console.log(`[HOST] Gremlin interaction: ${action} on ${targetId}`);
-  // TODO: implement grab/drop and window close logic
 });
 
 // Visitor: Interaction complete feedback
@@ -151,15 +213,15 @@ socket.on('interaction:complete', (result) => {
   console.log('[VISITOR] Interaction result:', result);
 });
 
-// ==================== Game Setup ====================
+// ==================== Host Setup & Rendering ====================
 
 function startGameHost() {
-  roleLabel.textContent = '👤 Host';
+  roleLabel.textContent = '👤 Host (Desktop)';
   hostView.classList.remove('hidden');
   visitorView.classList.add('hidden');
   showScreen('game');
 
-  // Initialize desk state with sample data
+  // Sample desktop data
   gameState.deskState = {
     icons: [
       { id: 'icon-1', x: 100, y: 100, type: 'folder', label: 'Pictures' },
@@ -171,37 +233,42 @@ function startGameHost() {
       { id: 'win-1', x: 500, y: 200, width: 300, height: 200, title: 'System Info', open: true }
     ],
     gremlinPos: { x: 512, y: 288 },
-    gremlinMode: 'walk'
+    gremlinMode: 'head-tracked',
+    gremlinPose: {
+      yaw: 0,
+      pitch: 0,
+      roll: 0,
+      mouthOpen: 0,
+      leftEye: 1,
+      rightEye: 1,
+      x: 512,
+      y: 288
+    }
   };
+
+  // Initialize 3D Gremlin Head overlay on host desktop
+  if (typeof GremlinHead3D !== 'undefined' && threeCanvas) {
+    hostGremlin3D = new GremlinHead3D({
+      canvas: threeCanvas,
+      width: 1024,
+      height: 576,
+      isOverlay: true
+    });
+  }
 
   // Start rendering loop
   renderDesktop();
 }
 
-function startGameVisitor() {
-  roleLabel.textContent = '🕹️ Visitor';
-  hostView.classList.add('hidden');
-  visitorView.classList.remove('hidden');
-  showScreen('game');
-
-  // Setup input handling
-  setupVisitorInput();
-
-  // Start rendering loop (show remote view)
-  renderRemoteView();
-}
-
-// ==================== Rendering ====================
-
 function renderDesktop() {
   const w = desktopCanvas.width;
   const h = desktopCanvas.height;
 
-  // Clear canvas
+  // Clear 2D background
   desktopCtx.fillStyle = '#d4af37';
   desktopCtx.fillRect(0, 0, w, h);
 
-  // Draw wallpaper pattern (simple grid)
+  // Draw wallpaper pattern (grid)
   desktopCtx.strokeStyle = '#c09830';
   desktopCtx.lineWidth = 1;
   for (let i = 0; i < w; i += 40) {
@@ -218,65 +285,29 @@ function renderDesktop() {
   }
 
   // Draw icons
-  gameState.deskState.icons.forEach(icon => {
+  gameState.deskState.icons.forEach((icon) => {
     drawIcon(icon);
   });
 
   // Draw windows
-  gameState.deskState.windows.forEach(window => {
+  gameState.deskState.windows.forEach((window) => {
     if (window.open) {
       drawWindow(window);
     }
   });
 
-  // Draw gremlin
-  drawGremlin(gameState.deskState.gremlinPos.x, gameState.deskState.gremlinPos.y);
+  // Render Gremlin according to mode
+  if (gameState.deskState.gremlinMode === 'head-tracked' && hostGremlin3D) {
+    // 3D head rendered via Three.js overlay canvas
+    threeCanvas.style.display = 'block';
+    hostGremlin3D.render();
+  } else {
+    // Fallback 2D gremlin circle
+    if (threeCanvas) threeCanvas.style.display = 'none';
+    drawGremlin(gameState.deskState.gremlinPos.x, gameState.deskState.gremlinPos.y);
+  }
 
-  // Continue animation loop
   requestAnimationFrame(renderDesktop);
-}
-
-function renderRemoteView() {
-  const w = remoteCanvas.width;
-  const h = remoteCanvas.height;
-  const scale = 0.5; // Scale from full desktop to remote view
-
-  // Clear canvas
-  remoteCtx.fillStyle = '#d4af37';
-  remoteCtx.fillRect(0, 0, w, h);
-
-  // Draw scaled icons
-  gameState.deskState.icons.forEach(icon => {
-    remoteCtx.fillStyle = '#ff9800';
-    remoteCtx.fillRect(icon.x * scale - 12, icon.y * scale - 12, 24, 24);
-  });
-
-  // Draw scaled windows
-  gameState.deskState.windows.forEach(window => {
-    if (window.open) {
-      remoteCtx.fillStyle = '#fff';
-      remoteCtx.fillRect(
-        window.x * scale,
-        window.y * scale,
-        window.width * scale,
-        window.height * scale
-      );
-    }
-  });
-
-  // Draw scaled gremlin
-  remoteCtx.fillStyle = '#4caf50';
-  remoteCtx.fillRect(
-    gameState.deskState.gremlinPos.x * scale - 10,
-    gameState.deskState.gremlinPos.y * scale - 10,
-    20,
-    20
-  );
-
-  // Update debug info
-  gremlinDebug.textContent = `Gremlin: (${Math.round(gameState.deskState.gremlinPos.x)}, ${Math.round(gameState.deskState.gremlinPos.y)})`;
-
-  requestAnimationFrame(renderRemoteView);
 }
 
 function drawIcon(icon) {
@@ -284,14 +315,12 @@ function drawIcon(icon) {
   const y = icon.y;
   const size = 50;
 
-  // Icon background
   desktopCtx.fillStyle = '#fff';
   desktopCtx.fillRect(x - size / 2, y - size / 2, size, size);
   desktopCtx.strokeStyle = '#ccc';
   desktopCtx.lineWidth = 2;
   desktopCtx.strokeRect(x - size / 2, y - size / 2, size, size);
 
-  // Icon symbol based on type
   desktopCtx.fillStyle = '#333';
   desktopCtx.font = 'bold 24px Arial';
   desktopCtx.textAlign = 'center';
@@ -303,7 +332,6 @@ function drawIcon(icon) {
 
   desktopCtx.fillText(symbol, x, y);
 
-  // Label
   desktopCtx.font = '12px Arial';
   desktopCtx.fillStyle = '#333';
   desktopCtx.fillText(icon.label, x, y + 35);
@@ -312,25 +340,21 @@ function drawIcon(icon) {
 function drawWindow(window) {
   const { x, y, width, height, title } = window;
 
-  // Window frame
   desktopCtx.fillStyle = '#f0f0f0';
   desktopCtx.fillRect(x, y, width, height);
   desktopCtx.strokeStyle = '#999';
   desktopCtx.lineWidth = 2;
   desktopCtx.strokeRect(x, y, width, height);
 
-  // Title bar
   desktopCtx.fillStyle = '#0078d4';
   desktopCtx.fillRect(x, y, width, 25);
 
-  // Title text
   desktopCtx.font = 'bold 14px Arial';
   desktopCtx.fillStyle = '#fff';
   desktopCtx.textAlign = 'left';
   desktopCtx.textBaseline = 'middle';
   desktopCtx.fillText(title, x + 10, y + 12.5);
 
-  // Close button (X)
   const closeX = x + width - 20;
   const closeY = y + 12.5;
   desktopCtx.strokeStyle = '#fff';
@@ -346,13 +370,11 @@ function drawWindow(window) {
 }
 
 function drawGremlin(x, y) {
-  // Simple gremlin: green circle with eyes
   desktopCtx.fillStyle = '#4caf50';
   desktopCtx.beginPath();
   desktopCtx.arc(x, y, 20, 0, Math.PI * 2);
   desktopCtx.fill();
 
-  // Eyes
   desktopCtx.fillStyle = '#fff';
   desktopCtx.beginPath();
   desktopCtx.arc(x - 8, y - 5, 6, 0, Math.PI * 2);
@@ -361,7 +383,6 @@ function drawGremlin(x, y) {
   desktopCtx.arc(x + 8, y - 5, 6, 0, Math.PI * 2);
   desktopCtx.fill();
 
-  // Pupils
   desktopCtx.fillStyle = '#000';
   desktopCtx.beginPath();
   desktopCtx.arc(x - 8, y - 5, 3, 0, Math.PI * 2);
@@ -370,7 +391,6 @@ function drawGremlin(x, y) {
   desktopCtx.arc(x + 8, y - 5, 3, 0, Math.PI * 2);
   desktopCtx.fill();
 
-  // Mouth
   desktopCtx.strokeStyle = '#000';
   desktopCtx.lineWidth = 2;
   desktopCtx.beginPath();
@@ -378,7 +398,146 @@ function drawGremlin(x, y) {
   desktopCtx.stroke();
 }
 
-// ==================== Visitor Input ====================
+// ==================== Visitor Setup & Input ====================
+
+function startGameVisitor() {
+  roleLabel.textContent = '🕹️ Visitor (Gremlin Controller)';
+  hostView.classList.add('hidden');
+  visitorView.classList.remove('hidden');
+  showScreen('game');
+
+  // Initialize 3D avatar preview for visitor
+  if (typeof GremlinHead3D !== 'undefined' && visitorAvatarCanvas) {
+    visitorGremlin3D = new GremlinHead3D({
+      canvas: visitorAvatarCanvas,
+      width: 240,
+      height: 240,
+      isOverlay: false
+    });
+  }
+
+  // Initialize Face Tracker
+  if (typeof FaceTracker !== 'undefined') {
+    faceTracker = new FaceTracker({
+      videoElement: webcamVideo,
+      onPoseUpdate: (pose) => {
+        // Merge into local pose
+        Object.assign(gameState.localGremlinPose, pose);
+
+        // Update local 3D mirror
+        if (visitorGremlin3D) {
+          visitorGremlin3D.updatePose(pose);
+        }
+
+        // Send to server/host
+        socket.emit('visitor:faceUpdate', {
+          roomCode: gameState.roomCode,
+          pose: {
+            ...pose,
+            x: gameState.localGremlinPos.x,
+            y: gameState.localGremlinPos.y
+          }
+        });
+
+        if (gremlinDebug) {
+          gremlinDebug.textContent = `Pose: yaw ${(pose.yaw * 57.3).toFixed(0)}°, pitch ${(pose.pitch * 57.3).toFixed(0)}° | Mouth: ${(pose.mouthOpen * 100).toFixed(0)}% | Eyes: ${(pose.leftEye * 100).toFixed(0)}%`;
+        }
+      },
+      onStatusChange: (statusText, isTracking) => {
+        if (faceTrackingStatus) {
+          faceTrackingStatus.textContent = statusText;
+        }
+      }
+    });
+
+    // Auto-start simulation mode so user has immediate interactivity
+    faceTracker.startSimulation();
+  }
+
+  // Setup camera toggle button
+  if (toggleCameraBtn) {
+    toggleCameraBtn.addEventListener('click', async () => {
+      if (faceTracker) {
+        if (!faceTracker.isTracking) {
+          toggleCameraBtn.textContent = '⏳ Starting Camera...';
+          await faceTracker.start();
+          if (faceTracker.isTracking) {
+            toggleCameraBtn.textContent = '🛑 Stop Camera';
+          } else {
+            toggleCameraBtn.textContent = '📷 Retry Camera';
+          }
+        } else {
+          faceTracker.stop();
+          toggleCameraBtn.textContent = '📷 Enable Camera';
+          faceTracker.startSimulation();
+        }
+      }
+    });
+  }
+
+  // Setup mode switch button (2D vs 3D)
+  if (toggleModeBtn) {
+    toggleModeBtn.addEventListener('click', () => {
+      const newMode = gameState.deskState.gremlinMode === 'head-tracked' ? 'walk' : 'head-tracked';
+      gameState.deskState.gremlinMode = newMode;
+      toggleModeBtn.textContent = newMode === 'head-tracked' ? 'Switch to 2D' : 'Switch to 3D Head';
+      socket.emit('visitor:toggleMode', { roomCode: gameState.roomCode, mode: newMode });
+    });
+  }
+
+  // Keyboard and remote click controls
+  setupVisitorInput();
+
+  // Start rendering loop for visitor
+  renderRemoteView();
+}
+
+function renderRemoteView() {
+  const w = remoteCanvas.width;
+  const h = remoteCanvas.height;
+  const scale = 0.5;
+
+  remoteCtx.fillStyle = '#d4af37';
+  remoteCtx.fillRect(0, 0, w, h);
+
+  // Scaled icons
+  gameState.deskState.icons.forEach((icon) => {
+    remoteCtx.fillStyle = '#ff9800';
+    remoteCtx.fillRect(icon.x * scale - 12, icon.y * scale - 12, 24, 24);
+  });
+
+  // Scaled windows
+  gameState.deskState.windows.forEach((window) => {
+    if (window.open) {
+      remoteCtx.fillStyle = '#fff';
+      remoteCtx.fillRect(
+        window.x * scale,
+        window.y * scale,
+        window.width * scale,
+        window.height * scale
+      );
+    }
+  });
+
+  // Scaled gremlin indicator
+  remoteCtx.fillStyle = '#4caf50';
+  remoteCtx.beginPath();
+  remoteCtx.arc(
+    gameState.localGremlinPos.x * scale,
+    gameState.localGremlinPos.y * scale,
+    10,
+    0,
+    Math.PI * 2
+  );
+  remoteCtx.fill();
+
+  // Render 3D visitor avatar mirror
+  if (visitorGremlin3D) {
+    visitorGremlin3D.render();
+  }
+
+  requestAnimationFrame(renderRemoteView);
+}
 
 const keys = {};
 
@@ -397,16 +556,22 @@ function setupVisitorInput() {
     const clickX = (e.clientX - rect.left) / (rect.width / remoteCanvas.width);
     const clickY = (e.clientY - rect.top) / (rect.height / remoteCanvas.height);
 
-    // Convert back to full desktop coordinates (scale = 2x)
     const desktopX = clickX * 2;
     const desktopY = clickY * 2;
 
-    socket.emit('visitor:moveGremlin', { roomCode: gameState.roomCode, x: desktopX, y: desktopY });
+    gameState.localGremlinPos.x = desktopX;
+    gameState.localGremlinPos.y = desktopY;
+
+    socket.emit('visitor:moveGremlin', {
+      roomCode: gameState.roomCode,
+      x: desktopX,
+      y: desktopY
+    });
   });
 }
 
 function processInput() {
-  const speed = 5;
+  const speed = 7;
   let moved = false;
 
   if (keys['ArrowUp'] || keys['w'] || keys['W']) {
@@ -427,8 +592,8 @@ function processInput() {
   }
 
   // Clamp to canvas bounds
-  gameState.localGremlinPos.x = Math.max(20, Math.min(desktopCanvas.width - 20, gameState.localGremlinPos.x));
-  gameState.localGremlinPos.y = Math.max(20, Math.min(desktopCanvas.height - 20, gameState.localGremlinPos.y));
+  gameState.localGremlinPos.x = Math.max(40, Math.min(1024 - 40, gameState.localGremlinPos.x));
+  gameState.localGremlinPos.y = Math.max(40, Math.min(576 - 40, gameState.localGremlinPos.y));
 
   if (moved) {
     socket.emit('visitor:moveGremlin', {
@@ -436,15 +601,29 @@ function processInput() {
       x: gameState.localGremlinPos.x,
       y: gameState.localGremlinPos.y
     });
+
+    if (faceTracker && faceTracker.simulationActive) {
+      socket.emit('visitor:faceUpdate', {
+        roomCode: gameState.roomCode,
+        pose: {
+          ...gameState.localGremlinPose,
+          x: gameState.localGremlinPos.x,
+          y: gameState.localGremlinPos.y
+        }
+      });
+    }
   }
 
   if (keys[' ']) {
-    console.log('[VISITOR] Grab/interact pressed');
-    // TODO: check for collision with icons/windows and initiate drag
+    socket.emit('visitor:interact', {
+      roomCode: gameState.roomCode,
+      action: 'grab',
+      targetId: null
+    });
   }
 }
 
 // ==================== Initialization ====================
-
-console.log('🎮 Desktop Gremlin Client loaded');
+console.log('🎮 Desktop Gremlin 3D Face Client loaded');
 showScreen('title');
+

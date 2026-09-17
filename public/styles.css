@@ -214,11 +214,39 @@ input[type="text"]:focus {
   display: none;
 }
 
-#desktopCanvas {
+.canvas-container {
+  position: relative;
+  width: 1024px;
+  height: 576px;
   max-width: 100%;
-  max-height: 100%;
   border-radius: 8px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+#desktopCanvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+#threeCanvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.visitor-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 25px;
+  justify-content: center;
+  align-items: flex-start;
+  max-width: 1050px;
+  width: 100%;
 }
 
 .control-panel {
@@ -226,8 +254,9 @@ input[type="text"]:focus {
   padding: 30px;
   border-radius: 8px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-  max-width: 500px;
-  width: 100%;
+  flex: 1;
+  min-width: 320px;
+  max-width: 460px;
 }
 
 .control-panel h3 {
@@ -238,47 +267,125 @@ input[type="text"]:focus {
 
 .input-instructions {
   background: #f5f5f5;
-  padding: 20px;
+  padding: 15px;
   border-radius: 6px;
-  margin-bottom: 20px;
+  margin-bottom: 15px;
 }
 
 .input-instructions p {
   color: #555;
-  margin: 10px 0;
-  font-size: 0.95em;
+  margin: 8px 0;
+  font-size: 0.9em;
 }
 
 .input-instructions strong {
   color: #667eea;
 }
 
+.face-control-card {
+  background: #f0f4ff;
+  border: 1px solid #d0deff;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+.face-control-card h4 {
+  color: #3b5998;
+  margin-bottom: 10px;
+  font-size: 1.1em;
+}
+
+.button-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.btn-small {
+  padding: 8px 14px;
+  font-size: 0.85em;
+}
+
+.status-box {
+  background: white;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 0.85em;
+  color: #4a5568;
+  border: 1px solid #e2e8f0;
+}
+
+.preview-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.preview-box {
+  background: white;
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  text-align: center;
+}
+
+.preview-box h4 {
+  font-size: 0.9em;
+  color: #555;
+  margin-bottom: 8px;
+}
+
+#visitorAvatarCanvas {
+  background: #1a202c;
+  border-radius: 6px;
+  display: block;
+  margin: 0 auto;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+#webcamVideo {
+  background: #2d3748;
+  border-radius: 6px;
+  display: block;
+  margin: 0 auto;
+  transform: scaleX(-1); /* Mirror camera feed */
+  object-fit: cover;
+}
+
 .debug-info {
   background: #f9f9f9;
-  padding: 15px;
+  padding: 12px;
   border-radius: 6px;
   font-family: monospace;
-  font-size: 0.85em;
+  font-size: 0.8em;
   color: #555;
-  margin-top: 15px;
+  margin-top: 10px;
   border-left: 3px solid #667eea;
 }
 
 .remote-view {
-  margin-top: 30px;
+  margin-top: 25px;
   text-align: center;
+}
+
+.remote-view h4 {
+  color: white;
+  margin-bottom: 8px;
+  font-size: 1em;
 }
 
 #remoteCanvas {
   max-width: 100%;
-  max-height: 400px;
+  max-height: 280px;
   border-radius: 8px;
   background: black;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .info {
-  color: #999;
+  color: #f7fafc;
   font-size: 0.9em;
-  margin-top: 20px;
+  margin-top: 15px;
+  text-align: center;
 }
