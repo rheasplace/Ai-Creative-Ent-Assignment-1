@@ -662,9 +662,9 @@
     <!-- Reliability & Fallback banner -->
     <div class="card highlight" style="margin-top: 25px; flex-direction: row; align-items: center; justify-content: space-between; padding: 18px 26px;">
       <div>
-        <strong style="color: #ffffff; font-size: 15px;">🛡️ Built-in Resilience & Fallback Mode:</strong>
+        <strong style="color: #ffffff; font-size: 15px;">🛡️ Built-in Resilience & Port Fallback:</strong>
         <span style="color: #94a3b8; font-size: 13px; margin-left: 8px;">
-          If webcam access is blocked or unavailable, the app automatically switches to interactive mouse-tracking & hotkeys (<code>M</code> for mouth, <code>B</code> for blink).
+          Automatic port conflict recovery (resolves busy port 3000 by auto-incrementing to 3001+) and fallback mouse controls when webcam is unavailable.
         </span>
       </div>
       <span class="badge badge-green" style="margin-bottom: 0;">100% UPTIME READY</span>
@@ -714,7 +714,7 @@
         <ul class="feature-list">
           <li class="feature-item">
             <span class="check-icon">✓</span>
-            <span><strong>Node.js + Express:</strong> Ultra-fast HTTP server serving client assets and health checks.</span>
+            <span><strong>Node.js + Express:</strong> Ultra-fast server with automatic port collision recovery (EADDRINUSE auto-fallback).</span>
           </li>
           <li class="feature-item">
             <span class="check-icon">✓</span>
@@ -790,8 +790,9 @@
         <ul class="feature-list" style="font-size: 13px;">
           <li class="feature-item"><span class="check-icon">✓</span><span>Three.js procedural 3D head model</span></li>
           <li class="feature-item"><span class="check-icon">✓</span><span>MediaPipe FaceMesh integration</span></li>
-          <li class="feature-item"><span class="check-icon">✓</span><span>Yaw, Pitch, Roll Euler rotation</span></li>
+          <li class="feature-item"><span class="check-icon">✓</span><span>Euler head rotation (Yaw/Pitch/Roll)</span></li>
           <li class="feature-item"><span class="check-icon">✓</span><span>Articulated jaw & blinking eyelids</span></li>
+          <li class="feature-item"><span class="check-icon">✓</span><span>Auto port collision fallback (3000 -> 3001+)</span></li>
           <li class="feature-item"><span class="check-icon">✓</span><span>Live visitor mirror & test simulation</span></li>
         </ul>
       </div>
@@ -831,8 +832,8 @@
         <div class="card highlight" style="padding: 22px;">
           <h4 style="color: #f59e0b; font-size: 15px; font-weight: 700; margin-bottom: 12px;">🚀 Quickstart Local Demo:</h4>
           <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #e2e8f0; line-height: 1.8;">
-            1. <code>npm start</code> (Runs on port 3000)<br>
-            2. Open <code>http://localhost:3000</code> in two browser tabs<br>
+            1. <code>npm start</code> (Auto-selects open port: 3000, 3001, etc.)<br>
+            2. Open displayed terminal URL in two browser tabs<br>
             3. Tab 1: Click <strong>"Host a Session"</strong><br>
             4. Tab 2: Click <strong>"Join"</strong>, enter PIN, click <strong>"📷 Enable Camera"</strong>
           </div>

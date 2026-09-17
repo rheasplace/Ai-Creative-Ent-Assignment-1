@@ -337,8 +337,8 @@ const techCards = [
     items: [
       "Node.js + Express (Lightweight server)",
       "Socket.IO 4.6 (Bidirectional event relay)",
-      "In-Memory Room Store (Zero DB overhead)",
-      "CORS enabled for cross-origin tunneling"
+      "Auto Port Fallback (EADDRINUSE auto-recovery)",
+      "In-Memory Room Store (Zero DB overhead)"
     ]
   },
   {
@@ -346,7 +346,7 @@ const techCards = [
     items: [
       "Deployable on Render, Railway, or Glitch",
       "ngrok tunneling for instant internet demo",
-      "Fallback Simulation Mode: Mouse & Keys work if camera is denied or unavailable",
+      "Fallback Simulation Mode: Mouse & Keys work if camera is denied",
       "Zero 3D asset lag (Procedural Three.js geometry)"
     ]
   }
@@ -406,6 +406,7 @@ const phases = [
       "✅ MediaPipe FaceMesh webcam tracking",
       "✅ Euler head rotation (Yaw/Pitch/Roll)",
       "✅ Articulated jaw & blinking eyelids",
+      "✅ Auto port collision fallback (3000 -> 3001+)",
       "✅ Live Visitor 3D Avatar mirror preview",
       "✅ Fallback Interactive Simulation mode"
     ]
@@ -541,9 +542,9 @@ slide9.addShape(pres.ShapeType.roundRect, {
 
 slide9.addText([
   { text: "1. Run locally: ", options: { bold: true, color: ACCENT_GOLD } },
-  { text: "npm start  ➔  Open http://localhost:3000 in two windows\n", options: { color: TEXT_LIGHT } },
+  { text: "npm start  ➔  Auto-selects open port (3000, 3001, etc.)\n", options: { color: TEXT_LIGHT } },
   { text: "2. Host Session: ", options: { bold: true, color: ACCENT_GOLD } },
-  { text: "Click 'Host a Session' and share the 6-digit room code\n", options: { color: TEXT_LIGHT } },
+  { text: "Open displayed terminal URL, click 'Host a Session'\n", options: { color: TEXT_LIGHT } },
   { text: "3. Join & Track: ", options: { bold: true, color: ACCENT_GOLD } },
   { text: "Enter code, click '📷 Enable Camera', and control the 3D Gremlin Head with your face!", options: { color: TEXT_LIGHT } }
 ], {
