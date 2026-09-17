@@ -1,8 +1,11 @@
 /**
- * FaceTracker handles webcam capture and MediaPipe FaceMesh processing.
- * Extracts head rotation (pitch, yaw, roll), mouth openness, and eye blinks.
- * Includes fallback interactive simulation when camera is unavailable.
+ * Desktop Gremlin — FaceTracker
+ * 
+ * Manages webcam capture and MediaPipe FaceMesh processing.
+ * Extracts 3D head rotation (yaw, pitch, roll), mouth openness, and eye blinks.
+ * Includes an interactive mouse & keyboard fallback simulation for camera-free testing.
  */
+
 class FaceTracker {
   constructor(options = {}) {
     this.videoElement = options.videoElement;
@@ -14,8 +17,9 @@ class FaceTracker {
     this.faceMesh = null;
     this.cameraUtil = null;
     this.lastEmitTime = 0;
-    this.emitInterval = 1000 / 30; // ~30 FPS emission throttle
+    this.emitInterval = 1000 / 30; // Throttle telemetry to ~30 FPS to minimize socket congestion
 
+    // Simulation state (fallback mode)
     this.simulationActive = false;
     this.simulatedPose = {
       yaw: 0,
@@ -25,17 +29,24 @@ class FaceTracker {
       leftEye: 1,
       rightEye: 1
     };
+
+    // Stored references for cleanup to prevent event listener leakage
+    this._onMouseMove = null;
+    this._onKeyDown = null;
   }
 
   /**
-   * Start webcam and initialize MediaPipe FaceMesh
+   * Request webcam stream and initialize MediaPipe FaceMesh model.
+   * Gracefully falls back to interactive simulation if permission is denied or camera is missing.
    */
   async start() {
+    // If simulation was running, clean up its listeners first
+    this.stopSimulation();
     this.onStatusChange('Requesting camera access...', false);
 
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error('Webcam not supported in this browser');
+        throw new Error('Webcam not supported in this browser environment');
       }
 
       this.cameraStream = await navigator.mediaDevices.getUserMedia({
@@ -57,14 +68,14 @@ class FaceTracker {
       this.isTracking = true;
       this.onStatusChange('Face tracking active 🟢', true);
     } catch (err) {
-      console.warn('[FaceTracker] Camera or MediaPipe initialization failed:', err);
-      this.onStatusChange(`Camera unavailable: ${err.message}. Using test mode 🕹️`, false);
+      console.warn('[FaceTracker] Camera initialization failed:', err);
+      this.onStatusChange(`Camera unavailable (${err.message}). Using test mode 🕹️`, false);
       this.startSimulation();
     }
   }
 
   /**
-   * Initialize MediaPipe FaceMesh pipeline
+   * Initialize MediaPipe FaceMesh pipeline and frame ingestion
    */
   async initMediaPipe() {
     if (typeof FaceMesh === 'undefined') {
@@ -77,14 +88,14 @@ class FaceTracker {
 
     this.faceMesh.setOptions({
       maxNumFaces: 1,
-      refineLandmarks: true,
+      refineLandmarks: true, // Enables detailed eye pupil and iris tracking
       minDetectionConfidence: 0.5,
       minTrackingConfidence: 0.5
     });
 
     this.faceMesh.onResults((results) => this.onResults(results));
 
-    // Continuous frame processing via Camera utils or requestVideoFrameCallback
+    // Continuous video frame processing loop
     if (typeof Camera !== 'undefined' && this.videoElement) {
       this.cameraUtil = new Camera(this.videoElement, {
         onFrame: async () => {
@@ -97,25 +108,35 @@ class FaceTracker {
       });
       await this.cameraUtil.start();
     } else {
-      // Fallback loop using requestAnimationFrame
-      const loop = async () => {
+      // Fallback frame loop using requestAnimationFrame if Camera util is not present
+      const frameLoop = async () => {
         if (this.isTracking && this.videoElement && this.videoElement.readyState >= 2) {
           try {
             await this.faceMesh.send({ image: this.videoElement });
           } catch (e) {
-            // ignore frame drops
+            // Tolerate occasional frame drop
           }
         }
         if (this.isTracking) {
-          requestAnimationFrame(loop);
+          requestAnimationFrame(frameLoop);
         }
       };
-      requestAnimationFrame(loop);
+      requestAnimationFrame(frameLoop);
     }
   }
 
   /**
-   * Process FaceMesh 468 landmarks into 3D head pose and facial expressions
+   * Process 468 facial landmarks into 3D head pose and facial expressions.
+   * Key Landmark indices:
+   *   1   = Nose Tip
+   *   10  = Forehead / Glabella
+   *   152 = Chin
+   *   33  = Left Eye Outer Corner
+   *   263 = Right Eye Outer Corner
+   *   13  = Upper Lip Center
+   *   14  = Lower Lip Center
+   *   159 / 145 = Left Eye Upper / Lower Eyelid
+   *   386 / 374 = Right Eye Upper / Lower Eyelid
    */
   onResults(results) {
     if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
@@ -126,17 +147,6 @@ class FaceTracker {
     this.onStatusChange('Face detected ✅', true);
     const landmarks = results.multiFaceLandmarks[0];
 
-    // Key Landmark indices in MediaPipe FaceMesh:
-    // 1: Nose tip
-    // 10: Forehead / Glabella
-    // 152: Chin
-    // 33: Left eye outer corner (from subject's perspective)
-    // 263: Right eye outer corner
-    // 13: Upper lip center
-    // 14: Lower lip center
-    // 159, 145: Left eye top & bottom
-    // 386, 374: Right eye top & bottom
-
     const nose = landmarks[1];
     const forehead = landmarks[10];
     const chin = landmarks[152];
@@ -145,42 +155,43 @@ class FaceTracker {
     const upperLip = landmarks[13];
     const lowerLip = landmarks[14];
 
-    // 1. Face Dimensions
+    // 1. Calculate Face Scale References
     const eyeMidX = (leftEyeOuter.x + rightEyeOuter.x) / 2;
     const eyeDist = Math.hypot(rightEyeOuter.x - leftEyeOuter.x, rightEyeOuter.y - leftEyeOuter.y) || 0.1;
     const faceHeight = Math.hypot(chin.x - forehead.x, chin.y - forehead.y) || 0.2;
     const midY = (forehead.y + chin.y) / 2;
 
-    // 2. Yaw (turn left/right): horizontal displacement of nose relative to eye midpoint
-    // Webcam is mirrored, invert for intuitive mirroring
+    // 2. Yaw (Horizontal Head Turn)
+    // Webcam feed is mirrored for the user, invert sign for intuitive head turning
     const rawYaw = -((nose.x - eyeMidX) / eyeDist) * 3.2;
     const yaw = Math.max(-1.2, Math.min(1.2, rawYaw));
 
-    // 3. Pitch (nod up/down): vertical displacement of nose relative to forehead/chin midpoint
+    // 3. Pitch (Vertical Head Nod)
     const rawPitch = -((nose.y - midY) / faceHeight) * 3.5;
     const pitch = Math.max(-0.8, Math.min(0.8, rawPitch));
 
-    // 4. Roll (tilt head sideways): angle between the two eyes
+    // 4. Roll (Lateral Head Tilt)
     const rawRoll = Math.atan2(rightEyeOuter.y - leftEyeOuter.y, rightEyeOuter.x - leftEyeOuter.x);
     const roll = Math.max(-0.8, Math.min(0.8, rawRoll));
 
-    // 5. Mouth Openness: distance between upper and lower inner lips
+    // 5. Mouth Openness (Vertical distance between inner lips normalized by face height)
     const lipDist = Math.hypot(lowerLip.x - upperLip.x, lowerLip.y - upperLip.y);
     const mouthRatio = lipDist / faceHeight;
-    // Typical closed is ~0.02, wide open is ~0.14
+    // Typical rest ratio is ~0.025, wide open is ~0.14
     const mouthOpen = Math.max(0, Math.min(1, (mouthRatio - 0.025) / 0.11));
 
-    // 6. Eye Blinks
+    // 6. Eye Openness & Blinks
     let leftEye = 1.0;
     let rightEye = 1.0;
     if (landmarks[159] && landmarks[145] && landmarks[386] && landmarks[374]) {
       const leftEyeDist = Math.hypot(landmarks[145].x - landmarks[159].x, landmarks[145].y - landmarks[159].y) / faceHeight;
       const rightEyeDist = Math.hypot(landmarks[374].x - landmarks[386].x, landmarks[374].y - landmarks[386].y) / faceHeight;
-      // Closed ~0.012, open ~0.035
+      // Typical blink is < 0.015, full open is > 0.035
       leftEye = Math.max(0, Math.min(1, (leftEyeDist - 0.015) / 0.022));
       rightEye = Math.max(0, Math.min(1, (rightEyeDist - 0.015) / 0.022));
     }
 
+    // Rate-limit emissions to ~30 FPS
     const now = Date.now();
     if (now - this.lastEmitTime >= this.emitInterval) {
       this.lastEmitTime = now;
@@ -196,13 +207,16 @@ class FaceTracker {
   }
 
   /**
-   * Simulation / Test mode fallback: Allows controlling the 3D head with mouse
+   * Fallback Interactive Simulation Mode:
+   * Allows controlling head orientation via mouse position over preview box,
+   * 'M' key to toggle mouth open/close, and 'B' key to blink.
    */
   startSimulation() {
+    this.stopSimulation();
     this.simulationActive = true;
     this.onStatusChange('Test Mode: Move mouse over preview to turn head! 🖱️', true);
 
-    const onMouseMove = (e) => {
+    this._onMouseMove = (e) => {
       if (!this.simulationActive) return;
       const previewBox = document.getElementById('visitorAvatarCanvas') || document.body;
       const rect = previewBox.getBoundingClientRect();
@@ -216,10 +230,7 @@ class FaceTracker {
       this.onPoseUpdate({ ...this.simulatedPose });
     };
 
-    window.addEventListener('mousemove', onMouseMove);
-
-    // Press 'M' key in simulation mode to toggle mouth open/close, 'B' to blink
-    window.addEventListener('keydown', (e) => {
+    this._onKeyDown = (e) => {
       if (!this.simulationActive) return;
       if (e.key === 'm' || e.key === 'M') {
         this.simulatedPose.mouthOpen = this.simulatedPose.mouthOpen > 0.5 ? 0 : 1;
@@ -235,12 +246,34 @@ class FaceTracker {
           this.onPoseUpdate({ ...this.simulatedPose });
         }, 200);
       }
-    });
+    };
+
+    window.addEventListener('mousemove', this._onMouseMove);
+    window.addEventListener('keydown', this._onKeyDown);
   }
 
+  /**
+   * Clean up simulation event listeners to prevent duplicate handlers
+   */
+  stopSimulation() {
+    this.simulationActive = false;
+    if (this._onMouseMove) {
+      window.removeEventListener('mousemove', this._onMouseMove);
+      this._onMouseMove = null;
+    }
+    if (this._onKeyDown) {
+      window.removeEventListener('keydown', this._onKeyDown);
+      this._onKeyDown = null;
+    }
+  }
+
+  /**
+   * Stop camera stream and reset tracking state
+   */
   stop() {
     this.isTracking = false;
-    this.simulationActive = false;
+    this.stopSimulation();
+
     if (this.cameraStream) {
       this.cameraStream.getTracks().forEach((track) => track.stop());
       this.cameraStream = null;
@@ -252,6 +285,6 @@ class FaceTracker {
   }
 }
 
-// Export to window
+// Export to window object for browser access
 window.FaceTracker = FaceTracker;
 

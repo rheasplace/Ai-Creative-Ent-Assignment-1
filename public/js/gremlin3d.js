@@ -1,8 +1,17 @@
 /**
- * 3D Gremlin Head Model rendered using Three.js.
- * Provides articulated jaw (mouth open/close), blinking eyelids,
- * pointed ears, and responsive Euler head rotations (pitch, yaw, roll).
+ * Desktop Gremlin — GremlinHead3D
+ * 
+ * Procedural 3D Gremlin Head built with Three.js.
+ * Features:
+ *   - Articulated lower jaw pivot for mouth opening/closing
+ *   - Pointed goblin ears with dynamic roll tilt
+ *   - Blinking hemisphere eyelids
+ *   - Dual Camera Modes:
+ *       1. Overlay Mode (Host): Orthographic camera calibrated 1:1 with 2D desktop canvas
+ *       2. Preview Mode (Visitor): Perspective camera centered on head for mirror view
+ *   - Smooth lerp interpolation for yaw, pitch, roll, mouth, and eye positions
  */
+
 class GremlinHead3D {
   constructor(options = {}) {
     this.canvas = options.canvas;
@@ -10,7 +19,7 @@ class GremlinHead3D {
     this.height = options.height || 576;
     this.isOverlay = options.isOverlay !== undefined ? options.isOverlay : true;
 
-    // Smoothed pose values
+    // Smoothed pose values (interpolated towards targetPose)
     this.pose = {
       yaw: 0,
       pitch: 0,
@@ -25,15 +34,36 @@ class GremlinHead3D {
     this.targetPose = { ...this.pose };
     this.idleTime = 0;
 
+    // Arrays to store disposable resources for memory management
+    this._geometries = [];
+    this._materials = [];
+
     this.initThree();
     this.buildGremlinModel();
+  }
+
+  /**
+   * Helper to track created geometries for disposal on cleanup
+   */
+  _trackGeo(geo) {
+    this._geometries.push(geo);
+    return geo;
+  }
+
+  /**
+   * Helper to track created materials for disposal on cleanup
+   */
+  _trackMat(mat) {
+    this._materials.push(mat);
+    return mat;
   }
 
   initThree() {
     this.scene = new THREE.Scene();
 
     if (this.isOverlay) {
-      // Orthographic camera mapping directly to screen pixels (0,0 at top-left)
+      // Orthographic camera: (left, right, top, bottom, near, far)
+      // Top = 0, Bottom = height maps Y downward, matching 2D HTML Canvas coordinates!
       this.camera = new THREE.OrthographicCamera(
         0,
         this.width,
@@ -44,7 +74,7 @@ class GremlinHead3D {
       );
       this.camera.position.z = 500;
     } else {
-      // Perspective camera centered on head for avatar preview
+      // Perspective camera: centered close-up on gremlin face for avatar preview
       this.camera = new THREE.PerspectiveCamera(
         45,
         this.width / this.height,
@@ -63,7 +93,7 @@ class GremlinHead3D {
     this.renderer.setSize(this.width, this.height);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 
-    // Lighting
+    // Three-point lighting setup: Ambient fill, warm key light, neon green rim light
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
     this.scene.add(ambientLight);
 
@@ -76,13 +106,17 @@ class GremlinHead3D {
     this.scene.add(rimLight);
   }
 
+  /**
+   * Assemble the 3D Gremlin Head using stylized procedural meshes.
+   * Eliminates the need for external GLTF/OBJ assets, guaranteeing zero loading latency.
+   */
   buildGremlinModel() {
     this.rootGroup = new THREE.Group();
     this.headGroup = new THREE.Group();
     this.rootGroup.add(this.headGroup);
     this.scene.add(this.rootGroup);
 
-    // Scaling based on mode
+    // Scale model appropriately based on display mode
     const baseScale = this.isOverlay ? 38 : 34;
     this.rootGroup.scale.set(baseScale, baseScale, baseScale);
 
@@ -92,56 +126,55 @@ class GremlinHead3D {
       this.rootGroup.position.set(0, 0, 0);
     }
 
-    // Materials
-    const skinMat = new THREE.MeshStandardMaterial({
-      color: 0x38a169, // Gremlin green
+    // Material Definitions
+    const skinMat = this._trackMat(new THREE.MeshStandardMaterial({
+      color: 0x38a169, // Goblin green
       roughness: 0.35,
       metalness: 0.1
-    });
+    }));
 
-    const innerEarMat = new THREE.MeshStandardMaterial({
-      color: 0xe53e3e, // Deep pink/red inside ears
+    const innerEarMat = this._trackMat(new THREE.MeshStandardMaterial({
+      color: 0xe53e3e, // Deep pink/red ear cavity
       roughness: 0.5
-    });
+    }));
 
-    const eyeWhiteMat = new THREE.MeshStandardMaterial({
+    const eyeWhiteMat = this._trackMat(new THREE.MeshStandardMaterial({
       color: 0xfffff0,
       roughness: 0.2
-    });
+    }));
 
-    const pupilMat = new THREE.MeshStandardMaterial({
+    const pupilMat = this._trackMat(new THREE.MeshStandardMaterial({
       color: 0x1a202c,
       roughness: 0.1
-    });
+    }));
 
-    const toothMat = new THREE.MeshStandardMaterial({
+    const toothMat = this._trackMat(new THREE.MeshStandardMaterial({
       color: 0xf7fafc,
       roughness: 0.3
-    });
+    }));
 
-    const mouthInsideMat = new THREE.MeshBasicMaterial({
+    const mouthInsideMat = this._trackMat(new THREE.MeshBasicMaterial({
       color: 0x2d0c14
-    });
+    }));
 
-    // 1. Cranium (Upper Head)
-    const craniumGeo = new THREE.SphereGeometry(1.0, 24, 24);
-    // Squash slightly for goblin skull shape
+    // 1. Cranium (Upper Skull)
+    const craniumGeo = this._trackGeo(new THREE.SphereGeometry(1.0, 24, 24));
     craniumGeo.scale(1.05, 0.95, 1.0);
     const cranium = new THREE.Mesh(craniumGeo, skinMat);
     cranium.position.set(0, 0.2, 0);
     this.headGroup.add(cranium);
 
-    // Brow ridge
-    const browGeo = new THREE.CylinderGeometry(0.85, 0.85, 0.25, 16);
+    // Brow Ridge
+    const browGeo = this._trackGeo(new THREE.CylinderGeometry(0.85, 0.85, 0.25, 16));
     const brow = new THREE.Mesh(browGeo, skinMat);
     brow.rotation.z = Math.PI / 2;
     brow.position.set(0, 0.45, 0.65);
     brow.scale.set(0.4, 1.0, 0.3);
     this.headGroup.add(brow);
 
-    // Small horns / ear tufts on top
+    // Horns / Ear Tufts
     [-0.5, 0.5].forEach((xSide) => {
-      const hornGeo = new THREE.ConeGeometry(0.18, 0.6, 12);
+      const hornGeo = this._trackGeo(new THREE.ConeGeometry(0.18, 0.6, 12));
       const horn = new THREE.Mesh(hornGeo, skinMat);
       horn.position.set(xSide, 1.15, -0.1);
       horn.rotation.z = xSide > 0 ? -0.35 : 0.35;
@@ -149,14 +182,13 @@ class GremlinHead3D {
       this.headGroup.add(horn);
     });
 
-    // 2. Large Pointed Gremlin Ears
+    // 2. Pointed Goblin Ears
     this.ears = [];
     [-1, 1].forEach((dir) => {
       const earGroup = new THREE.Group();
       earGroup.position.set(dir * 0.95, 0.2, -0.1);
 
-      // Outer ear cone
-      const earGeo = new THREE.ConeGeometry(0.4, 1.6, 16);
+      const earGeo = this._trackGeo(new THREE.ConeGeometry(0.4, 1.6, 16));
       earGeo.scale(0.3, 1, 1);
       const earMesh = new THREE.Mesh(earGeo, skinMat);
       earMesh.rotation.z = dir * (Math.PI / 2.5);
@@ -164,8 +196,7 @@ class GremlinHead3D {
       earMesh.position.set(dir * 0.7, 0.1, 0);
       earGroup.add(earMesh);
 
-      // Inner ear pink inset
-      const innerEarGeo = new THREE.ConeGeometry(0.24, 1.2, 12);
+      const innerEarGeo = this._trackGeo(new THREE.ConeGeometry(0.24, 1.2, 12));
       innerEarGeo.scale(0.2, 1, 0.8);
       const innerEarMesh = new THREE.Mesh(innerEarGeo, innerEarMat);
       innerEarMesh.rotation.z = dir * (Math.PI / 2.5);
@@ -177,28 +208,26 @@ class GremlinHead3D {
       this.ears.push(earGroup);
     });
 
-    // 3. Eyes & Eyelids
+    // 3. Eyes & Blinking Eyelids
     this.eyes = [];
     this.eyelids = [];
-    [-0.42, 0.42].forEach((xPos, idx) => {
+    [-0.42, 0.42].forEach((xPos) => {
       const eyePivot = new THREE.Group();
       eyePivot.position.set(xPos, 0.22, 0.82);
 
-      // Eyeball
-      const eyeballGeo = new THREE.SphereGeometry(0.28, 16, 16);
+      const eyeballGeo = this._trackGeo(new THREE.SphereGeometry(0.28, 16, 16));
       const eyeball = new THREE.Mesh(eyeballGeo, eyeWhiteMat);
       eyePivot.add(eyeball);
 
-      // Iris / Pupil
-      const pupilGeo = new THREE.SphereGeometry(0.12, 12, 12);
+      const pupilGeo = this._trackGeo(new THREE.SphereGeometry(0.12, 12, 12));
       const pupil = new THREE.Mesh(pupilGeo, pupilMat);
       pupil.position.set(0, 0, 0.22);
       eyePivot.add(pupil);
 
-      // Eyelid (blinking hemisphere shell)
-      const eyelidGeo = new THREE.SphereGeometry(0.30, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+      // Upper eyelid: hemisphere shell that rotates down to close
+      const eyelidGeo = this._trackGeo(new THREE.SphereGeometry(0.30, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2));
       const eyelid = new THREE.Mesh(eyelidGeo, skinMat);
-      eyelid.rotation.x = -Math.PI / 2; // Start retracted (eye open)
+      eyelid.rotation.x = -Math.PI / 2; // -90 deg is open (retracted)
       eyePivot.add(eyelid);
 
       this.headGroup.add(eyePivot);
@@ -206,35 +235,33 @@ class GremlinHead3D {
       this.eyelids.push(eyelid);
     });
 
-    // 4. Upper Jaw & Teeth
-    const upperMouthCavityGeo = new THREE.CylinderGeometry(0.45, 0.45, 0.3, 16, 1, false, 0, Math.PI);
-    const upperMouth = new THREE.Mesh(upperMouthCavityGeo, mouthInsideMat);
+    // 4. Upper Jaw & Fangs
+    const upperMouthGeo = this._trackGeo(new THREE.CylinderGeometry(0.45, 0.45, 0.3, 16, 1, false, 0, Math.PI));
+    const upperMouth = new THREE.Mesh(upperMouthGeo, mouthInsideMat);
     upperMouth.position.set(0, -0.2, 0.6);
     upperMouth.rotation.x = Math.PI / 2;
     this.headGroup.add(upperMouth);
 
-    // Upper fangs
     [-0.22, 0.22].forEach((xPos) => {
-      const fangGeo = new THREE.ConeGeometry(0.08, 0.22, 8);
+      const fangGeo = this._trackGeo(new THREE.ConeGeometry(0.08, 0.22, 8));
       const fang = new THREE.Mesh(fangGeo, toothMat);
       fang.position.set(xPos, -0.2, 0.88);
       fang.rotation.x = Math.PI;
       this.headGroup.add(fang);
     });
 
-    // 5. Articulated Lower Jaw (Mouth Opening)
+    // 5. Articulated Lower Jaw (Hinges downward for mouth opening)
     this.jawGroup = new THREE.Group();
-    this.jawGroup.position.set(0, -0.2, 0.2); // Jaw hinge pivot point
+    this.jawGroup.position.set(0, -0.2, 0.2); // Pivot hinge near back of jaw
 
-    const chinGeo = new THREE.SphereGeometry(0.55, 16, 16);
+    const chinGeo = this._trackGeo(new THREE.SphereGeometry(0.55, 16, 16));
     chinGeo.scale(0.9, 0.5, 1.0);
     const chin = new THREE.Mesh(chinGeo, skinMat);
     chin.position.set(0, -0.15, 0.45);
     this.jawGroup.add(chin);
 
-    // Lower teeth
     [-0.18, 0, 0.18].forEach((xPos) => {
-      const toothGeo = new THREE.ConeGeometry(0.06, 0.18, 8);
+      const toothGeo = this._trackGeo(new THREE.ConeGeometry(0.06, 0.18, 8));
       const tooth = new THREE.Mesh(toothGeo, toothMat);
       tooth.position.set(xPos, -0.02, 0.82);
       this.jawGroup.add(tooth);
@@ -244,8 +271,7 @@ class GremlinHead3D {
   }
 
   /**
-   * Update the target head pose from face tracking or controls
-   * @param {Object} pose { yaw, pitch, roll, mouthOpen, leftEye, rightEye, x, y }
+   * Update target pose values from face tracking telemetry or simulated controls
    */
   updatePose(pose) {
     if (!pose) return;
@@ -265,12 +291,13 @@ class GremlinHead3D {
   }
 
   /**
-   * Render frame with smooth interpolation (lerp)
+   * Main render method: Applies smooth linear interpolation (lerp)
+   * and renders scene at 60 FPS
    */
   render() {
     this.idleTime += 0.03;
 
-    // Linear interpolation for smooth non-jittery movement
+    // Linear interpolation rates for smooth, jitter-free motion
     const lerpRate = 0.22;
     this.pose.yaw += (this.targetPose.yaw - this.pose.yaw) * lerpRate;
     this.pose.pitch += (this.targetPose.pitch - this.pose.pitch) * lerpRate;
@@ -282,7 +309,7 @@ class GremlinHead3D {
     this.pose.x += (this.targetPose.x - this.pose.x) * 0.2;
     this.pose.y += (this.targetPose.y - this.pose.y) * 0.2;
 
-    // Idle subtle breathing / floating
+    // Subtle breathing floating effect
     const floatOffset = Math.sin(this.idleTime) * 3;
 
     if (this.isOverlay) {
@@ -291,19 +318,17 @@ class GremlinHead3D {
       this.rootGroup.position.set(0, floatOffset * 0.2, 0);
     }
 
-    // Apply head orientation
-    // Note: In overlay orthographic mode, canvas Y is inverted compared to standard 3D Y
+    // Apply Euler rotations
     const pitchMultiplier = this.isOverlay ? 1.0 : -1.0;
     this.headGroup.rotation.y = this.pose.yaw;
     this.headGroup.rotation.x = this.pose.pitch * pitchMultiplier;
     this.headGroup.rotation.z = -this.pose.roll;
 
-    // Articulate lower jaw based on mouthOpen (0 to 1)
+    // Rotate lower jaw open
     const clampedMouth = Math.max(0, Math.min(1, this.pose.mouthOpen));
     this.jawGroup.rotation.x = clampedMouth * (Math.PI / 4.5);
 
-    // Blinking eyelids (1 = open, 0 = closed)
-    // -Math.PI/2 is open, 0 is fully closed
+    // Eyelid blinking (1 = fully open, 0 = fully closed)
     const leftBlink = Math.max(0, Math.min(1, this.pose.leftEye));
     const rightBlink = Math.max(0, Math.min(1, this.pose.rightEye));
 
@@ -335,8 +360,19 @@ class GremlinHead3D {
     }
     this.camera.updateProjectionMatrix();
   }
+
+  /**
+   * Release WebGL GPU resources when game session ends
+   */
+  dispose() {
+    this._geometries.forEach((geo) => geo.dispose());
+    this._materials.forEach((mat) => mat.dispose());
+    if (this.renderer) {
+      this.renderer.dispose();
+    }
+  }
 }
 
-// Export to window
+// Export to window object for browser access
 window.GremlinHead3D = GremlinHead3D;
 
