@@ -7,16 +7,15 @@
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-   <!--this is to test the branching-->
-    <!--Makingmorechanges like this-->
   <!-- Title Screen -->
   <div id="titleScreen" class="screen">
     <div class="screen-content">
+      <div class="brand-badge">🎮 MULTIPLAYER PRANK APP</div>
       <h1>🌚 Desktop Gremlin</h1>
-      <p>Control a mischievous gremlin and wreak havoc on your friend's desktop!</p>
+      <p>Invade your friend's desktop as a mischievous gremlin! Grab icons, slam windows shut, spray graffiti, and cause playful chaos.</p>
       <div class="button-group">
-        <button id="hostBtn" class="btn btn-primary">Host a Session</button>
-        <button id="joinBtn" class="btn btn-secondary">Join a Session</button>
+        <button id="hostBtn" class="btn btn-primary">🖥️ Host a Desktop</button>
+        <button id="joinBtn" class="btn btn-secondary">🕹️ Invade a Desktop</button>
       </div>
     </div>
   </div>
@@ -26,8 +25,8 @@
     <div class="screen-content">
       <h2>Share this code with your friend:</h2>
       <div class="room-code" id="roomCodeDisplay">---</div>
-      <p>Waiting for visitor to join...</p>
-      <button id="endHost" class="btn btn-danger">End Session</button>
+      <p>Waiting for your friend to enter and invade your desktop...</p>
+      <button id="endHost" class="btn btn-danger">Cancel Session</button>
     </div>
   </div>
 
@@ -36,48 +35,133 @@
     <div class="screen-content">
       <h2>Enter Room Code:</h2>
       <input id="roomCodeInput" type="text" placeholder="e.g., 123456" maxlength="6">
-      <button id="joinSubmit" class="btn btn-primary">Join</button>
-      <button id="cancelJoin" class="btn btn-secondary">Back</button>
+      <div class="button-group">
+        <button id="joinSubmit" class="btn btn-primary">Enter Desktop</button>
+        <button id="cancelJoin" class="btn btn-secondary">Back</button>
+      </div>
       <div id="joinError" class="error-message"></div>
     </div>
   </div>
 
-  <!-- Game Screen (shared between host and visitor, different UI per role) -->
+  <!-- Unified Interactive Game Screen (Both Host and Visitor) -->
   <div id="gameScreen" class="screen hidden">
-    <div class="game-header">
+    <header class="game-header">
       <div class="session-info">
-        <span id="roleLabel"></span>
+        <span id="roleLabel" class="role-badge">👤 Host</span>
+        <span id="roomBadge" class="room-badge">Room #------</span>
         <span id="statusLabel" class="status-indicator">Connected</span>
       </div>
-      <button id="endSession" class="btn btn-danger btn-small">End Session</button>
-    </div>
-
-    <!-- Host view: the simulated desktop -->
-    <div id="hostView" class="game-view hidden">
-      <canvas id="desktopCanvas" width="1024" height="576"></canvas>
-      <div class="info">
-        <p>Guest is controlling the gremlin...</p>
+      <div class="header-actions">
+        <button id="shareScreenBtn" class="btn btn-action hidden">🖥️ Stream Real Desktop</button>
+        <button id="toggleSoundBtn" class="btn btn-action">🔊 Sound: ON</button>
+        <button id="endSession" class="btn btn-danger btn-small">End Session</button>
       </div>
-    </div>
+    </header>
 
-    <!-- Visitor view: control panel -->
-    <div id="visitorView" class="game-view hidden">
-      <div class="control-panel">
-        <h3>Control the Gremlin</h3>
-        <div class="input-instructions">
-          <p><strong>Arrow Keys or WASD:</strong> Move</p>
-          <p><strong>Space:</strong> Grab/Interact</p>
+    <!-- Main Desktop Invaded Stage -->
+    <main class="desktop-stage" id="desktopStage">
+      <div class="canvas-container" id="canvasContainer">
+        <!-- Optional real screen stream video (hidden element used as canvas texture) -->
+        <video id="screenShareVideo" autoplay playsinline muted style="display: none;"></video>
+        <!-- 2D Retro Desktop Canvas: Wallpaper, Icons, Windows, Stamps, FX -->
+        <canvas id="desktopCanvas" width="1024" height="576"></canvas>
+        <!-- 3D Three.js WebGL Gremlin Overlay -->
+        <canvas id="threeCanvas" width="1024" height="576"></canvas>
+        <!-- Interactive Tooltip Overlay -->
+        <div id="actionTooltip" class="action-tooltip hidden"></div>
+      </div>
+
+      <!-- Visitor Floating Chaos Control Bar -->
+      <div id="chaosToolbar" class="chaos-toolbar hidden">
+        <div class="toolbar-label">🔥 CHAOS TOOLS:</div>
+        <button id="btnGrab" class="tool-btn" title="Grab / Toss Icon (Space or Click & Drag)">
+          <span class="tool-icon">🖐️</span>
+          <span class="tool-text">Grab Icon</span>
+          <kbd>Space</kbd>
+        </button>
+        <button id="btnSlam" class="tool-btn" title="Slam Window Shut (X)">
+          <span class="tool-icon">💥</span>
+          <span class="tool-text">Slam Window</span>
+          <kbd>X</kbd>
+        </button>
+        <button id="btnStamp" class="tool-btn" title="Spray Graffiti Stamp (G)">
+          <span class="tool-icon">🎨</span>
+          <span class="tool-text">Graffiti</span>
+          <kbd>G</kbd>
+        </button>
+        <button id="btnConfetti" class="tool-btn" title="Confetti Explosion (C)">
+          <span class="tool-icon">🎉</span>
+          <span class="tool-text">Confetti</span>
+          <kbd>C</kbd>
+        </button>
+        <button id="btnShake" class="tool-btn" title="Earthquake Screen Shake (S)">
+          <span class="tool-icon">📳</span>
+          <span class="tool-text">Earthquake</span>
+          <kbd>S</kbd>
+        </button>
+        <button id="btnSticky" class="tool-btn" title="Drop Sticky Note (N)">
+          <span class="tool-icon">📝</span>
+          <span class="tool-text">Sticky Note</span>
+          <kbd>N</kbd>
+        </button>
+        <button id="btnAlert" class="tool-btn" title="Spawn Prank Alert Popup (P)">
+          <span class="tool-icon">⚠️</span>
+          <span class="tool-text">Prank Popup</span>
+          <kbd>P</kbd>
+        </button>
+      </div>
+
+      <!-- Floating Picture-In-Picture Camera & Face Mirror HUD -->
+      <div id="floatingPip" class="floating-pip hidden">
+        <div class="pip-header" id="pipHeader">
+          <span>🎭 Gremlin Vision</span>
+          <button id="pipMinimizeBtn" class="pip-toggle">−</button>
         </div>
-        <div id="gremlinDebug" class="debug-info"></div>
+        <div class="pip-body" id="pipBody">
+          <div class="pip-previews">
+            <div class="pip-preview-item">
+              <span class="pip-subtext">3D Avatar Mirror</span>
+              <canvas id="visitorAvatarCanvas" width="110" height="110"></canvas>
+            </div>
+            <div class="pip-preview-item">
+              <span class="pip-subtext">Webcam</span>
+              <video id="webcamVideo" width="110" height="85" autoplay playsinline muted></video>
+            </div>
+          </div>
+          <div class="pip-controls">
+            <button id="toggleCameraBtn" class="btn btn-primary btn-xs">📷 Enable Camera</button>
+            <button id="toggleModeBtn" class="btn btn-secondary btn-xs">Switch to 2D</button>
+          </div>
+          <div id="faceTrackingStatus" class="pip-status">Mouse controls active. Enable camera for face puppetry!</div>
+          <div id="gremlinDebug" class="pip-debug"></div>
+        </div>
       </div>
-      <!-- Optional: live view from host's canvas (via WebRTC or canvas streaming) -->
-      <div id="remoteView" class="remote-view">
-        <canvas id="remoteCanvas" width="512" height="288"></canvas>
+    </main>
+  </div>
+
+  <!-- Sticky Note Prompt Modal -->
+  <div id="stickyModal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <h3>📝 Leave a Sticky Note</h3>
+      <p>Leave a mischievous note directly on the host's desktop:</p>
+      <input id="stickyInput" type="text" placeholder="e.g. Gremlin wuz here! 😈" maxlength="45">
+      <div class="modal-buttons">
+        <button id="stickySubmit" class="btn btn-primary">Stick on Desktop</button>
+        <button id="stickyCancel" class="btn btn-secondary">Cancel</button>
       </div>
     </div>
   </div>
 
+  <!-- Three.js 3D Engine -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- MediaPipe FaceMesh & Camera Utils -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+
+  <!-- Socket.IO & App Scripts -->
   <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/gremlin3d.js"></script>
+  <script src="/js/faceTracker.js"></script>
   <script src="/js/client.js"></script>
 </body>
 </html>
