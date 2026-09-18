@@ -195,7 +195,6 @@ slide3.addText([
   fontSize: 13, lineSpacing: 20
 });
 
-// Right Column: Dual-Role Experience
 slide3.addShape(pres.ShapeType.roundRect, {
   x: 6.7, y: 1.6, w: 5.8, h: 2.3,
   fill: { color: CARD_BG }, line: { color: ACCENT_GOLD, width: 1.2 }, radius: 8
@@ -204,7 +203,7 @@ slide3.addText("👤 THE HOST", {
   x: 7.0, y: 1.8, w: 5.2, h: 0.35,
   fontSize: 14, bold: true, color: ACCENT_GOLD
 });
-slide3.addText("Shares room code & displays simulated desktop canvas. Watches in real time as their friend's face-controlled avatar invades their workspace.", {
+slide3.addText("Hosts a retro simulated sandbox OS or streams their actual real Windows/Mac desktop via WebRTC getDisplayMedia, watching their friend's gremlin crawl over real open apps!", {
   x: 7.0, y: 2.2, w: 5.2, h: 1.4,
   fontSize: 12, color: TEXT_MUTED, lineSpacing: 18
 });
@@ -213,11 +212,11 @@ slide3.addShape(pres.ShapeType.roundRect, {
   x: 6.7, y: 4.1, w: 5.8, h: 2.3,
   fill: { color: CARD_BG }, line: { color: ACCENT_GREEN, width: 1.2 }, radius: 8
 });
-slide3.addText("🕹️ THE VISITOR (GREMLIN)", {
+slide3.addText("🕹️ THE VISITOR (DESKTOP INVADER)", {
   x: 7.0, y: 4.3, w: 5.2, h: 0.35,
   fontSize: 14, bold: true, color: ACCENT_GREEN
 });
-slide3.addText("Joins via code. Pilots the gremlin using webcam face tracking + WASD keyboard controls. Sees live mirror feedback and a remote desktop radar view.", {
+slide3.addText("Joins via code. Enters the other user's desktop directly! Drags and tosses files, smashes windows shut, sprays graffiti paw prints, and triggers earthquakes with live synchronized chaos.", {
   x: 7.0, y: 4.7, w: 5.2, h: 1.4,
   fontSize: 12, color: TEXT_MUTED, lineSpacing: 18
 });
@@ -412,16 +411,18 @@ const phases = [
     ]
   },
   {
-    phase: "PHASE 3 (NEXT STEPS)",
-    status: "PLANNED",
-    statusColor: '581C87',
-    textColor: 'D8B4FE',
+    phase: "PHASE 3 (CHAOS SUITE)",
+    status: "DELIVERED TODAY",
+    statusColor: 'D97706',
+    textColor: 'FDE68A',
     bullets: [
-      "⏳ Confetti burst particle explosion",
-      "⏳ Screen shake CSS feedback",
-      "⏳ Mischievous sound FX & audio cues",
-      "⏳ WebXR AR Mode (Gremlin on desk)",
-      "⏳ Twitch / Streamer interactive bot"
+      "✅ Direct Desktop Invasion (Visitor on screen)",
+      "✅ Drag, Drop & Fling Icon Physics",
+      "✅ Window Smashing & Prank Popups",
+      "✅ WebRTC Real Desktop Screen Streaming",
+      "✅ Earthquake Shake & Confetti Explosions",
+      "✅ Graffiti Stamps & Sticky Notes",
+      "✅ Web Audio Procedural 8-bit Sound FX"
     ]
   }
 ];
@@ -543,10 +544,10 @@ slide9.addShape(pres.ShapeType.roundRect, {
 slide9.addText([
   { text: "1. Run locally: ", options: { bold: true, color: ACCENT_GOLD } },
   { text: "npm start  ➔  Auto-selects open port (3000, 3001, etc.)\n", options: { color: TEXT_LIGHT } },
-  { text: "2. Host Session: ", options: { bold: true, color: ACCENT_GOLD } },
-  { text: "Open displayed terminal URL, click 'Host a Session'\n", options: { color: TEXT_LIGHT } },
-  { text: "3. Join & Track: ", options: { bold: true, color: ACCENT_GOLD } },
-  { text: "Enter code, click '📷 Enable Camera', and control the 3D Gremlin Head with your face!", options: { color: TEXT_LIGHT } }
+  { text: "2. Host Desktop: ", options: { bold: true, color: ACCENT_GOLD } },
+  { text: "Click '🖥️ Host a Desktop' (optionally click 'Stream Real Desktop')\n", options: { color: TEXT_LIGHT } },
+  { text: "3. Invade & Cause Chaos: ", options: { bold: true, color: ACCENT_GOLD } },
+  { text: "Click '🕹️ Invade a Desktop', enter PIN, and drag files, smash windows, spray graffiti, and shake the screen!", options: { color: TEXT_LIGHT } }
 ], {
   x: 1.8, y: 4.0, w: 9.7, h: 1.4,
   fontSize: 13, lineSpacing: 22

@@ -70,27 +70,51 @@ io.on('connection', (socket) => {
   // 1. Host creates a new session room
   socket.on('host:create', () => {
     const roomCode = generateRoomCode();
+    // Default interactive desktop environment state
+    const defaultDesktopState = {
+      icons: [
+        { id: 'icon-1', x: 120, y: 100, type: 'folder', label: 'Pictures', isHeld: false },
+        { id: 'icon-2', x: 220, y: 100, type: 'file', label: 'Secret_Plans.txt', isHeld: false },
+        { id: 'icon-3', x: 320, y: 100, type: 'app', label: 'Gremlin_Chaos.exe', isHeld: false },
+        { id: 'icon-4', x: 420, y: 100, type: 'folder', label: 'Downloads', isHeld: false },
+        { id: 'icon-5', x: 120, y: 220, type: 'file', label: 'Homework.docx', isHeld: false },
+        { id: 'icon-6', x: 220, y: 220, type: 'trash', label: 'Recycle Bin', isHeld: false }
+      ],
+      windows: [
+        {
+          id: 'win-1',
+          x: 480,
+          y: 120,
+          width: 320,
+          height: 220,
+          title: 'System Security Alert',
+          open: true,
+          content: 'WARNING: Unauthorized Gremlin detected on desktop!\nAll files subject to relocation.'
+        }
+      ],
+      stamps: [], // graffiti, stickers, footprints
+      stickyNotes: [],
+      gremlinPos: { x: 512, y: 288 },
+      gremlinMode: 'head-tracked', // 'head-tracked' (3D) or 'walk' (2D)
+      gremlinPose: {
+        yaw: 0,
+        pitch: 0,
+        roll: 0,
+        mouthOpen: 0,
+        leftEye: 1,
+        rightEye: 1,
+        x: 512,
+        y: 288
+      },
+      screenShareActive: false
+    };
+
     rooms[roomCode] = {
       hostId: socket.id,
       visitorId: null,
       hostSocket: socket,
       visitorSocket: null,
-      state: {
-        icons: [],
-        windows: [],
-        gremlinPos: { x: 512, y: 288 },
-        gremlinMode: 'head-tracked', // 'head-tracked' (3D) or 'walk' (2D)
-        gremlinPose: {
-          yaw: 0,
-          pitch: 0,
-          roll: 0,
-          mouthOpen: 0,
-          leftEye: 1,
-          rightEye: 1,
-          x: 512,
-          y: 288
-        }
-      }
+      state: defaultDesktopState
     };
 
     socket.emit('host:created', { roomCode });
@@ -122,13 +146,13 @@ io.on('connection', (socket) => {
     console.log(`[VISITOR] ${socket.id} joined room #${roomCode}`);
   });
 
-  // 3. Host updates the full desktop state (e.g. icon positions, windows open/closed)
+  // 3. Host updates the full desktop state
   socket.on('host:updateState', ({ roomCode, state }) => {
     const room = rooms[roomCode];
     if (room && room.hostId === socket.id) {
-      room.state = state;
+      room.state = Object.assign(room.state, state);
       if (room.visitorSocket) {
-        room.visitorSocket.emit('state:updated', state);
+        room.visitorSocket.emit('state:updated', room.state);
       }
     }
   });
@@ -173,22 +197,135 @@ io.on('connection', (socket) => {
     }
   });
 
-  // 7. Visitor triggers an interaction (grab object, close window)
+  // 7. Interactive Desktop: Icon Drag & Drop
+  socket.on('desktop:moveIcon', ({ roomCode, iconId, x, y, isHeld }) => {
+    const room = rooms[roomCode];
+    if (room) {
+      const icon = room.state.icons.find(i => i.id === iconId);
+      if (icon) {
+        icon.x = x;
+        icon.y = y;
+        icon.isHeld = !!isHeld;
+      }
+      // Broadcast to other peer
+      const target = socket.id === room.hostId ? room.visitorSocket : room.hostSocket;
+      if (target) {
+        target.emit('desktop:iconMoved', { iconId, x, y, isHeld });
+      }
+    }
+  });
+
+  // 8. Interactive Desktop: Window Close
+  socket.on('desktop:closeWindow', ({ roomCode, windowId }) => {
+    const room = rooms[roomCode];
+    if (room) {
+      const win = room.state.windows.find(w => w.id === windowId);
+      if (win) {
+        win.open = false;
+      }
+      // Broadcast to both peers
+      if (room.hostSocket) room.hostSocket.emit('desktop:windowClosed', { windowId });
+      if (room.visitorSocket) room.visitorSocket.emit('desktop:windowClosed', { windowId });
+    }
+  });
+
+  // 9. Interactive Desktop: Window Move
+  socket.on('desktop:moveWindow', ({ roomCode, windowId, x, y }) => {
+    const room = rooms[roomCode];
+    if (room) {
+      const win = room.state.windows.find(w => w.id === windowId);
+      if (win) {
+        win.x = x;
+        win.y = y;
+      }
+      const target = socket.id === room.hostId ? room.visitorSocket : room.hostSocket;
+      if (target) {
+        target.emit('desktop:windowMoved', { windowId, x, y });
+      }
+    }
+  });
+
+  // 10. Interactive Desktop: Spawn New Prank Window
+  socket.on('desktop:openWindow', ({ roomCode, windowData }) => {
+    const room = rooms[roomCode];
+    if (room) {
+      room.state.windows.push(windowData);
+      if (room.hostSocket) room.hostSocket.emit('desktop:windowOpened', windowData);
+      if (room.visitorSocket) room.visitorSocket.emit('desktop:windowOpened', windowData);
+    }
+  });
+
+  // 11. Interactive Chaos: Trigger Chaos FX (shake, confetti, sound)
+  socket.on('desktop:triggerChaos', ({ roomCode, effect, details }) => {
+    const room = rooms[roomCode];
+    if (room) {
+      if (room.hostSocket) room.hostSocket.emit('desktop:chaosTriggered', { effect, details });
+      if (room.visitorSocket) room.visitorSocket.emit('desktop:chaosTriggered', { effect, details });
+    }
+  });
+
+  // 12. Interactive Desktop: Graffiti & Stickers
+  socket.on('desktop:addStamp', ({ roomCode, stamp }) => {
+    const room = rooms[roomCode];
+    if (room) {
+      room.state.stamps.push(stamp);
+      if (room.hostSocket) room.hostSocket.emit('desktop:stampAdded', stamp);
+      if (room.visitorSocket) room.visitorSocket.emit('desktop:stampAdded', stamp);
+    }
+  });
+
+  // 13. Interactive Desktop: Sticky Notes
+  socket.on('desktop:addStickyNote', ({ roomCode, note }) => {
+    const room = rooms[roomCode];
+    if (room) {
+      if (!room.state.stickyNotes) room.state.stickyNotes = [];
+      room.state.stickyNotes.push(note);
+      if (room.hostSocket) room.hostSocket.emit('desktop:stickyNoteAdded', note);
+      if (room.visitorSocket) room.visitorSocket.emit('desktop:stickyNoteAdded', note);
+    }
+  });
+
+  // 14. Real Screen Share Signaling (WebRTC Relay)
+  socket.on('screenShare:status', ({ roomCode, active }) => {
+    const room = rooms[roomCode];
+    if (room && room.hostId === socket.id) {
+      room.state.screenShareActive = active;
+      if (room.visitorSocket) {
+        room.visitorSocket.emit('screenShare:statusChanged', { active });
+      }
+    }
+  });
+
+  socket.on('webrtc:offer', ({ roomCode, sdp }) => {
+    const room = rooms[roomCode];
+    if (room && room.visitorSocket) {
+      room.visitorSocket.emit('webrtc:offer', { sdp });
+    }
+  });
+
+  socket.on('webrtc:answer', ({ roomCode, sdp }) => {
+    const room = rooms[roomCode];
+    if (room && room.hostSocket) {
+      room.hostSocket.emit('webrtc:answer', { sdp });
+    }
+  });
+
+  socket.on('webrtc:iceCandidate', ({ roomCode, candidate }) => {
+    const room = rooms[roomCode];
+    if (room) {
+      const target = socket.id === room.hostId ? room.visitorSocket : room.hostSocket;
+      if (target) {
+        target.emit('webrtc:iceCandidate', { candidate });
+      }
+    }
+  });
+
+  // 15. Legacy interaction fallback
   socket.on('visitor:interact', ({ roomCode, action, targetId }) => {
     const room = rooms[roomCode];
     if (room && room.visitorId === socket.id) {
       if (room.hostSocket) {
         room.hostSocket.emit('gremlin:interact', { action, targetId });
-      }
-    }
-  });
-
-  // 8. Host confirms interaction resolution
-  socket.on('host:interactionComplete', ({ roomCode, result }) => {
-    const room = rooms[roomCode];
-    if (room && room.hostId === socket.id) {
-      if (room.visitorSocket) {
-        room.visitorSocket.emit('interaction:complete', result);
       }
     }
   });
